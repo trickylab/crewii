@@ -1,0 +1,28 @@
+[package]
+name = "crewii"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+license = "MIT"
+description = "Role-based engineering crew for OpenCode"
+repository = "https://github.com/trickylab/crewii"
+readme = "README.md"
+keywords = ["opencode", "agents", "cli", "crew", "workflow"]
+categories = ["command-line-utilities", "development-tools"]
+exclude = ["plugin-tests", "scripts", "package.json", ".github"]
+
+[dependencies]
+clap = { version = "4", features = ["derive"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[dev-dependencies]
+tempfile = "3"
+
+[profile.dev]
+# ponytail: macOS unpacked debuginfo leaves one .o per codegen unit, accumulating GBs over rebuilds; use full debug if needed.
+debug = "line-tables-only"
+
+[profile.release]
+strip = true
+lto = true

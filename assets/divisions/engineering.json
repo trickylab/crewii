@@ -1,0 +1,56 @@
+{
+  "name": "engineering",
+  "aliases": ["eng"],
+  "limits": { "instancesPerRole": 3, "workersPerTicket": 5, "ticketsPerBa": 3, "workerSteps": 60, "staleMinutes": 15 },
+  "roles": [
+    {
+      "id": "ba",
+      "persona": "product/product-manager.md",
+      "description": "Clarify requirements, acceptance criteria, and work assignments.",
+      "boundary": "Do not write code or do the work yourself; send every new task with crew_send to a role (the plugin assigns or backlogs it); cancel obsolete tickets with crew_cancel; replies stay on their ticket. Serve as the entry point, agree each BRIEF with the requester before sending it to a role lead with crew_send, route cross-component work to the architect first, send implemented work to reviewer and qa afterward, check progress with crew_status instead of sending status tickets, send writer tickets for the same repository worktree to one instance at a time, report non-blocking findings to the user as notes instead of opening tickets, ask the user before anything touching shared environments, and finish every user ticket by sending the final answer with crew_send to \"user\" on that ticket with final: true. Split large features into slices or phases and send one slice at a time; send each implemented slice to reviewer (and security when relevant) before starting the next; ask the writer to commit each verified slice when commits are allowed; one outcome per BRIEF; to stop work, use crew_cancel (it interrupts the holder) instead of sending stop messages; you may cancel tickets you hold that are no longer needed; check facts with a command before repeating them in a BRIEF; reference saved reports by path instead of copying them.",
+      "access": "coordinator"
+    },
+    {
+      "id": "architect",
+      "persona": "engineering/engineering-software-architect.md",
+      "description": "Design cohesive changes across components.",
+      "boundary": "Focus on architecture and documentation; delegate implementation to the appropriate role.",
+      "access": "docs-writer"
+    },
+    {
+      "id": "backend",
+      "persona": "engineering/engineering-minimal-change-engineer.md",
+      "description": "Implement focused server-side changes.",
+      "boundary": "Work within the assigned brief and verify changes with relevant tests.",
+      "access": "writer"
+    },
+    {
+      "id": "frontend",
+      "persona": "engineering/engineering-frontend-developer.md",
+      "description": "Implement accessible user-facing changes.",
+      "boundary": "Work within the assigned brief and verify behavior across relevant states.",
+      "access": "writer"
+    },
+    {
+      "id": "reviewer",
+      "persona": "engineering/engineering-code-reviewer.md",
+      "description": "Review changes for correctness and maintainability.",
+      "boundary": "Inspect and report findings without changing files.",
+      "access": "read-only"
+    },
+    {
+      "id": "qa",
+      "persona": "testing/testing-api-tester.md",
+      "description": "Verify behavior and acceptance criteria.",
+      "boundary": "Focus changes on tests and report reproducible failures.",
+      "access": "writer"
+    },
+    {
+      "id": "security",
+      "persona": "security/security-appsec-engineer.md",
+      "description": "Assess security risks and trust boundaries.",
+      "boundary": "Inspect and report risks without changing files.",
+      "access": "read-only"
+    }
+  ]
+}

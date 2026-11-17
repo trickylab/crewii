@@ -1,0 +1,8 @@
+crewii fetches personas from agency-agents when a crew is opened and embeds
+them in generated agent files in the user's project, excluded from Git. The
+personas are not redistributed in this repository or its releases.
+Generated agent files include attribution; a copy of the upstream license is
+included in their agent directory as LICENSE.agency-agents.
+
+agency-agents is licensed under the MIT License.
+Copyright (c) 2025 AgentLand Contributors.
