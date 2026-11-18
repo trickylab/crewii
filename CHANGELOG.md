@@ -6,6 +6,7 @@ This project follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- Release jobs that update the Homebrew tap and publish to crates.io.
 - Ticket cycle times in status and urgent backlog priority.
 - Temporary file cleanup and storage usage reporting.
 - Dispatcher backlog, automatic assignment, ticket cancellation, and configurable stale takeover.

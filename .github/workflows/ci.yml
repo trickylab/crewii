@@ -25,6 +25,14 @@ jobs:
         run: cargo clippy --all-targets --locked -- -D warnings
       - run: cargo test
       - run: node --test
+      - if: matrix.os == 'ubuntu-latest'
+        name: Homebrew formula renders
+        run: |
+          mkdir -p /tmp/f
+          for t in aarch64-apple-darwin x86_64-apple-darwin aarch64-unknown-linux-musl x86_64-unknown-linux-musl; do echo "0000  x" > /tmp/f/crewii-v0.0.0-$t.tar.gz.sha256; done
+          sh scripts/formula.sh v0.0.0 /tmp/f > /tmp/f/crewii.rb
+          ruby -c /tmp/f/crewii.rb
+          grep -c 'sha256 "0000"' /tmp/f/crewii.rb | grep -qx 4
 
   coverage:
     runs-on: ubuntu-latest

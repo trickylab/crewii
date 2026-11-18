@@ -82,3 +82,38 @@ jobs:
           else
             gh release create "$TAG" --generate-notes dist/*
           fi
+
+  homebrew:
+    needs: publish
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/download-artifact@v7
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Update trickylab/homebrew-tap
+        env:
+          TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          if [ -z "$TOKEN" ]; then echo "::warning::HOMEBREW_TAP_TOKEN not set; skipping tap update"; exit 0; fi
+          git clone --depth 1 "https://x-access-token:${TOKEN}@github.com/trickylab/homebrew-tap.git" tap
+          sh scripts/formula.sh "$TAG" dist > tap/crewii.rb
+          cd tap
+          git add crewii.rb
+          git diff --cached --quiet && exit 0
+          git -c user.name=github-actions -c user.email=github-actions@users.noreply.github.com commit -m "crewii ${TAG#v}"
+          git push
+
+  crates:
+    needs: publish
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Publish to crates.io
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        run: |
+          if [ -z "$CARGO_REGISTRY_TOKEN" ]; then echo "::warning::CARGO_REGISTRY_TOKEN not set; skipping crates.io"; exit 0; fi
+          cargo publish --locked
