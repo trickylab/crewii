@@ -268,13 +268,32 @@ mod tests {
 
     #[cfg(unix)]
     fn script(dir: &Path, name: &str, body: &str) -> PathBuf {
-        use std::os::unix::fs::PermissionsExt;
         let bin_dir = dir.join("b i n");
         std::fs::create_dir_all(&bin_dir).unwrap();
         let path = bin_dir.join(name);
-        std::fs::write(&path, format!("#!/bin/sh\n{body}\n")).unwrap();
-        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o755)).unwrap();
+        write_exe(&path, &format!("#!/bin/sh\n{body}\n"));
         path
+    }
+
+    /// A child `sh` writes the script, so the test process never holds its write fd. On Linux a
+    /// fork in another test thread could inherit that fd and make exec fail with ETXTBSY.
+    // ponytail: only this module's helper; commands.rs and tests/cli.rs scripts can hit the same race if they flake.
+    #[cfg(unix)]
+    fn write_exe(path: &Path, text: &str) {
+        use std::io::Write;
+        let mut child = Command::new("sh")
+            .args(["-c", "cat > \"$1\" && chmod 755 \"$1\"", "sh"])
+            .arg(path)
+            .stdin(Stdio::piped())
+            .spawn()
+            .unwrap();
+        child
+            .stdin
+            .take()
+            .unwrap()
+            .write_all(text.as_bytes())
+            .unwrap();
+        assert!(child.wait().unwrap().success());
     }
 
     #[cfg(unix)]
