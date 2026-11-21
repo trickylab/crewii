@@ -7,6 +7,7 @@ This project follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Fixed
 
 - The model picker accepts a full model ID with a variant, such as `provider/model#high`, and a search with a variant, such as `opus#high`.
+- Reopening a crew after `crewii rm` closes the restored tabs of the removed sessions instead of showing a second set of role tabs.
 
 ## [0.1.0] - 2026-11-18
 

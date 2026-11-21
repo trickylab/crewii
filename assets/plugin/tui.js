@@ -38,11 +38,21 @@ export function createTui({ fs, statePath, configPath, setInterval, clearInterva
         ctx.ui.toast.show({ message: 'crewii: invalid config division' });
         return;
       }
-      let lastSeq, orderAttempts = 0;
+      let lastSeq, orderAttempts = 0, cleanupPolls = 0;
       function poll(data = read()) {
         if (!data || data.invalidConfig) return;
         const { config, state } = data;
         let moved = false;
+        // OpenCode restores this directory's tabs on start; drop crew tabs whose sessions `crewii rm` deleted.
+        if (cleanupPolls++ < 30) {
+          const live = new Set(Object.values(state.instances).map(instance => instance.sessionID));
+          const roles = new Set(config.roles.map(role => role.id));
+          try {
+            for (const tab of tabs.list()) {
+              if (!live.has(tabID(tab)) && /-\d+$/.test(tab.title ?? '') && roles.has(roleOf(tab.title))) tabs.close(tabID(tab));
+            }
+          } catch { /* Retry on the next poll. */ }
+        }
         if (orderAttempts < 30 && config.roles.every(role => state.instances[`${role.id}-01`]?.sessionID)) {
           try {
             const current = tabs.list();

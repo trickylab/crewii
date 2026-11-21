@@ -307,3 +307,18 @@ test('lead move and assignment placement are never issued on the same poll', () 
     f.tick(); assert.equal(f.moves.length, 2); assert.ok(f.tabs.includes('ses_r2')); assert.equal(f.toasts.length, 1);
   } finally { f.dispose(); }
 });
+
+test('restored tabs of removed crew sessions are closed; other tabs stay', () => {
+  const f = fixture();
+  try {
+    const titles = { ses_old_ba: 'ba-01', ses_old_r: 'reviewer-02', ses_user: 'notes', ses_other: 'deploy-01' };
+    f.ctx.ui.tabs.list = () => f.tabs.map(id => ({ sessionID: id, title: titles[id] ?? id }));
+    f.tabs.push('ses_old_ba', 'ses_user', 'ses_old_r', 'ses_other');
+    f.tui.setup(f.ctx);
+    for (const id of ['ses_old_ba', 'ses_old_r']) assert.equal(f.tabs.includes(id), false);
+    for (const id of ['ses_user', 'ses_other', 'ses_ba', 'ses_r1', 'ses_qa']) assert.ok(f.tabs.includes(id));
+    const close = f.ctx.ui.tabs.close; f.ctx.ui.tabs.close = () => { throw Error('close'); };
+    f.tabs.push('ses_old_ba'); f.tick(); assert.ok(f.tabs.includes('ses_old_ba'));
+    f.ctx.ui.tabs.close = close; f.tick(); assert.equal(f.tabs.includes('ses_old_ba'), false);
+  } finally { f.dispose(); }
+});

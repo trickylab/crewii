@@ -255,7 +255,7 @@ Run `crewii` with no arguments to list divisions, or `crewii help <command>` for
 crewii rm engineering
 ```
 
-The confirmation defaults to No; `--yes` skips only the confirmation. Removal deletes the crew's sessions, clean worktrees, generated files, reports, and state. Branches and your override are kept, and dirty or detached worktrees are kept and reported. Tabs of removed sessions can linger in OpenCode's tab list until you close them.
+The confirmation defaults to No; `--yes` skips only the confirmation. Removal deletes the crew's sessions, clean worktrees, generated files, reports, and state. Branches and your override are kept, and dirty or detached worktrees are kept and reported. OpenCode keeps the old tabs in its tab list; the next `crewii <division>` closes the ones that belong to removed crew sessions.
 
 To uninstall, delete the binary and the crewii cache, plus any project overrides you no longer need.
 
