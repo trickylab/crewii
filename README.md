@@ -54,7 +54,7 @@ Upgrade with `brew upgrade crewii`.
 Each [release](https://github.com/trickylab/crewii/releases/latest) has an archive and a `.sha256` file for macOS and Linux (musl), on arm64 and x86_64. For example, on Apple silicon:
 
 ```sh
-v=v0.1.0 t=aarch64-apple-darwin
+v=v0.1.1 t=aarch64-apple-darwin
 curl -fsSLO "https://github.com/trickylab/crewii/releases/download/$v/crewii-$v-$t.tar.gz"
 curl -fsSLO "https://github.com/trickylab/crewii/releases/download/$v/crewii-$v-$t.tar.gz.sha256"
 shasum -a 256 -c "crewii-$v-$t.tar.gz.sha256"
@@ -69,7 +69,7 @@ Use `x86_64-apple-darwin`, `x86_64-unknown-linux-musl`, or `aarch64-unknown-linu
 With Rust 1.85 or newer:
 
 ```sh
-cargo install --locked --git https://github.com/trickylab/crewii --tag v0.1.0
+cargo install --locked --git https://github.com/trickylab/crewii --tag v0.1.1
 ```
 
 ## Quick start
