@@ -2,6 +2,12 @@
 
 This project follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+### Fixed
+
+- The model picker accepts a full model ID with a variant, such as `provider/model#high`, and a search with a variant, such as `opus#high`.
+
 ## [0.1.0] - 2026-11-18
 
 ### Added

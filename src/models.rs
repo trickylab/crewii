@@ -233,7 +233,11 @@ pub fn pick(
         if input.is_empty() {
             return current.map(str::to_owned);
         }
-        let filter = input.to_lowercase();
+        if validate(catalog, &input).is_ok() {
+            return Some(input);
+        }
+        let (filter, wanted) = input.split_once('#').unwrap_or((&input, ""));
+        let filter = filter.to_lowercase();
         let matches: Vec<_> = catalog
             .iter()
             .filter(|e| {
@@ -265,6 +269,9 @@ pub fn pick(
         };
         if entry.variants.is_empty() {
             return Some(entry.id.clone());
+        }
+        if entry.variants.iter().any(|v| v == wanted) {
+            return Some(format!("{}#{wanted}", entry.id));
         }
         loop {
             let Some(variant) = ask(&format!(
@@ -356,7 +363,7 @@ mod tests {
             vec![Some("")],
             vec![None],
             vec![Some("special"), None],
-            vec![Some("p/m"), Some("1"), None],
+            vec![Some("p/"), Some("1"), None],
         ] {
             assert_eq!(
                 choice(&input, &entries(), Some("old")).0.as_deref(),
@@ -408,6 +415,25 @@ mod tests {
         let all = prompts.join("");
         assert!(all.contains("20) p/19"));
         assert!(!all.contains("21) p/20"));
+    }
+
+    #[test]
+    fn picker_accepts_exact_ids_and_search_variants() {
+        for id in ["p/m#high", "p/m"] {
+            let (result, prompts) = choice(&[Some(id)], &entries(), Some("p/m#high"));
+            assert_eq!(result.as_deref(), Some(id));
+            assert_eq!(prompts.len(), 1);
+        }
+        let (result, prompts) = choice(&[Some("special#low"), Some("1")], &entries(), None);
+        assert_eq!(result.as_deref(), Some("p/m#low"));
+        assert!(!prompts.iter().any(|p| p.contains("Variant")));
+        let (result, prompts) = choice(
+            &[Some("special#bad"), Some("1"), Some("high")],
+            &entries(),
+            None,
+        );
+        assert_eq!(result.as_deref(), Some("p/m#high"));
+        assert!(prompts.iter().any(|p| p.contains("Variant")));
     }
 
     #[test]
