@@ -154,14 +154,14 @@ Leads cannot edit files or run Git commands that change state, whatever their ro
 | Profile | Edits | State-changing Git |
 | --- | --- | --- |
 | coordinator | `*docs/*.md` only | denied |
-| docs-writer | `*docs/*.md` only | denied |
+| docs-writer | `*docs/*.md` only | allowed in its worktree |
 | read-only | denied | denied |
 | writer | your configuration | your configuration |
 
 Every role shares a floor of deny rules:
 
 - `git push` and `git merge`, with or without Git options.
-- `sudo`, `kubectl`, and a fixed list of `gh` write subcommands.
+- `sudo`, `kubectl`, and `gh` writes: creating, editing, or deleting repositories, releases, pull requests, and issues; `gh workflow run`; and `gh api` with a method or fields. Reads such as `gh repo view`, `gh release list`, and `gh api <path>` are allowed.
 - Reads of `.env` and `.env.*`, except example, sample, and template files.
 - Named paths under `~/.ssh`, `~/.aws`, and `~/.config/gh`, plus `~/.netrc`.
 
@@ -173,6 +173,8 @@ Other shell commands follow your configuration. Role overrides are evaluated bef
 > ```json
 > {"roles":[{"id":"reviewer","permissions":[{"action":"<tool-name>","resource":"*","effect":"deny"}]}]}
 > ```
+Where Git state changes are denied, only the writing forms are blocked. Listings such as `git tag --sort=-v:refname`, `git branch -a --list 'x*'`, `git remote get-url`, and `git config --get` stay allowed.
+
 
 ## Writer output
 
@@ -181,6 +183,8 @@ Writer roles (backend, frontend, and qa) are told to work in `<root>/.opencode/c
 The edit tool locks each worktree to one instance with an open ticket. Shell writes and code generators bypass that lock. Both the worktree rule and the lock are agent instructions backed by guardrails, not enforced isolation.
 
 Workers keep temporary files in `<root>/.opencode/crewii/tmp/<division>-<ticket>/`, which is removed when the ticket closes. `crewii status` reports worktree and temporary storage sizes. `crewii status --prune` offers to remove leftover temporary directories and clean worktrees of closed tickets, keeping their branches. Crewii never deletes a worktree on its own, since it may hold uncommitted work.
+
+OpenCode matches edit paths relative to the crew session directory, `<root>/.opencode/crewii/<division>`, so a crew worktree file arrives as `../worktrees/<name>/<file>`. Crewii adds that relative form for every non-shell override rule that contains `.opencode/crewii/`, so `*/.opencode/crewii/worktrees/*` works as written.
 
 ## Configuration
 
@@ -196,7 +200,7 @@ Then edit `<root>/.opencode/crewii/engineering.json`:
 {
   "limits": {"instancesPerRole": 2},
   "roles": [{"id": "reviewer", "persona": "engineering/engineering-code-reviewer.md"}],
-  "floor": {"remove": ["gh api*"]}
+  "floor": {"remove": ["gh api* -X*"]}
 }
 ```
 

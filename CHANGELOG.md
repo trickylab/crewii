@@ -4,8 +4,15 @@ This project follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+
+- Permissions block only the writing forms of Git and `gh`. Read-only roles and leads can list tags, branches, remotes, and config with any options, and every role can read with `gh` (`gh repo view`, `gh release list`, `gh api <path>`).
+- The architect worker creates its own worktree and commits its documents.
+- Leads keep crew worktrees under `.opencode/crewii/worktrees/` even when project instructions name another location.
+
 ### Fixed
 
+- Override rules for crew worktrees, such as `*/.opencode/crewii/worktrees/*`, now allow edits there. OpenCode compares paths relative to the crew session directory, so these files arrived as `../worktrees/...` and every edit was denied.
 - The model picker accepts a full model ID with a variant, such as `provider/model#high`, and a search with a variant, such as `opus#high`.
 - Reopening a crew after `crewii rm` closes the restored tabs of the removed sessions instead of showing a second set of role tabs.
 

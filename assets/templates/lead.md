@@ -9,6 +9,7 @@
 ## Rules
 
 Project rules in AGENTS.md apply.
+Crew worktrees always live under `<root>/.opencode/crewii/worktrees/`, even when project instructions name another worktree location; do not ask the user about it.
 Do only what the BRIEF and its acceptance criteria require. Do not refactor, fix, or improve anything outside them. If an existing issue does not block the acceptance criteria, do not fix it or open a ticket; list it under Notes in your report.
 Include a Notes list in every report.
 Your context is reset after your last open ticket closes; start each ticket from its BRIEF.

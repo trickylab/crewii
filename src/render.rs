@@ -66,7 +66,9 @@ pub fn render(
             } else {
                 subagent
             };
-            let writer = if role.access == Access::Writer && kind == Kind::Worker {
+            let writer = if matches!(role.access, Access::Writer | Access::DocsWriter)
+                && kind == Kind::Worker
+            {
                 format!(
                     "If your role writes code or files: use the ticket id and slug from the request. Determine `<root>` by running `git rev-parse --show-toplevel` in the target repo. Whoever writes creates the worktree. If `<root>/.opencode/crewii/worktrees/{}-<ticket>` already exists, reuse it and its branch instead of creating a new one. Otherwise, create a worktree at `<root>/.opencode/crewii/worktrees/{}-<ticket>` on a new branch `crewii/{}-<ticket>-<slug>` from the BRIEF base. `<ticket>` is the ticket you were given (the first `ticket T-n` in your request), not a parent ticket. Commit there if commits are allowed; if a commit is denied, leave the changes uncommitted and report the diff. Report the branch, worktree path, and commits. Never edit the primary checkout. Never push or merge.\n\n",
                     d.name, d.name, d.name
@@ -543,6 +545,13 @@ mod tests {
         assert!(!other.contains("background true"));
         assert!(other.contains("crewii/engineering-<ticket>-<slug>"));
         assert!(other.contains("never check out or switch branches in the primary checkout"));
+        for (_, lead) in &r.leads {
+            assert!(
+                lead.contains(
+                    "Crew worktrees always live under `<root>/.opencode/crewii/worktrees/`"
+                )
+            );
+        }
         assert_eq!(r.workers[0].0, "ba");
         assert!(
             r.workers[0]
@@ -555,7 +564,7 @@ mod tests {
     fn writer_instructions_only_for_writers() {
         let r = rendered();
         for (id, text) in r.leads.iter().chain(&r.workers) {
-            let writer = ["backend", "frontend", "qa"].contains(&id.as_str())
+            let writer = ["architect", "backend", "frontend", "qa"].contains(&id.as_str())
                 && r.workers.iter().any(|(_, worker)| worker == text);
             assert_eq!(text.contains("worktrees/engineering-"), writer, "{id}");
             let before_brief = text.split("## BRIEF: Definition of Ready").next().unwrap();
