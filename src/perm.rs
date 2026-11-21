@@ -49,6 +49,10 @@ pub fn profile(access: Access) -> Vec<Rule> {
     if matches!(access, Access::Coordinator | Access::DocsWriter) {
         rules.push(rule("edit", "*docs/*.md", Effect::Allow));
     }
+    // Docs writers commit their documents in their own worktree, like writers.
+    if access == Access::DocsWriter {
+        return rules;
+    }
     for command in [
         "add",
         "reset",
@@ -81,47 +85,81 @@ pub fn profile(access: Access) -> Vec<Rule> {
         "notes",
     ] {
         let suffix = if command == "merge" { " *" } else { "*" };
-        rules.push(rule(
-            "shell",
-            &format!("git {command}{suffix}"),
-            Effect::Deny,
-        ));
-        rules.push(rule(
-            "shell",
-            &format!("git -C * {command}{suffix}"),
-            Effect::Deny,
-        ));
+        git_rule(&mut rules, &format!("{command}{suffix}"), Effect::Deny);
     }
     // Read-only forms of denied subcommands; a denied part rejects the whole compound command.
     for read in [
         "branch",
-        "branch --show-current",
-        "branch -a",
-        "branch -r",
-        "branch -v",
-        "branch -vv",
-        "branch --list*",
-        "branch --contains*",
-        "branch -r --contains*",
-        "branch -a --contains*",
-        "branch --merged*",
-        "branch --no-merged*",
-        "branch -r --merged*",
-        "branch -a --merged*",
+        "branch -*",
+        "tag",
+        "tag -*",
         "worktree list*",
         "stash list*",
         "stash show*",
-        "tag -l*",
-        "tag --list*",
+        "remote",
         "remote -v",
         "remote show*",
+        "remote get-url*",
         "config --get*",
-        "config --list",
+        "config --list*",
+        "config -l*",
+        "config get *",
+        "config list*",
+        "submodule status*",
+        "notes list*",
+        "notes show*",
+        "apply --check*",
+        "apply --stat*",
     ] {
-        rules.push(rule("shell", &format!("git {read}"), Effect::Allow));
-        rules.push(rule("shell", &format!("git -C * {read}"), Effect::Allow));
+        git_rule(&mut rules, read, Effect::Allow);
+    }
+    // Options that turn a listing into a write stay denied wherever they appear.
+    for write in [
+        "branch* -d*",
+        "branch* -D*",
+        "branch* --delete*",
+        "branch* -m*",
+        "branch* -M*",
+        "branch* --move*",
+        "branch* -c*",
+        "branch* -C*",
+        "branch* --copy*",
+        "branch* -f*",
+        "branch* --force*",
+        "branch* -u*",
+        "branch* --set-upstream*",
+        "branch* --unset-upstream*",
+        "branch* --edit-description*",
+        "branch* -t*",
+        "branch* --track*",
+        "branch* --no-track*",
+        "branch* --create-reflog*",
+        "branch* --recurse-submodules*",
+        "tag* -d*",
+        "tag* --delete*",
+        "tag* -a*",
+        "tag* --annotate*",
+        "tag* -s*",
+        "tag* --sign*",
+        "tag* -u*",
+        "tag* --local-user*",
+        "tag* -f*",
+        "tag* --force*",
+        "tag* -m*",
+        "tag* --message*",
+        "tag* -F*",
+        "tag* --file*",
+        "tag* -e*",
+        "tag* --edit*",
+    ] {
+        git_rule(&mut rules, write, Effect::Deny);
     }
     rules
+}
+
+fn git_rule(rules: &mut Vec<Rule>, tail: &str, effect: Effect) {
+    rules.push(rule("shell", &format!("git {tail}"), effect));
+    rules.push(rule("shell", &format!("git -C * {tail}"), effect));
 }
 
 pub fn floor(remove: &[String]) -> Vec<Rule> {
@@ -168,9 +206,27 @@ pub fn floor(remove: &[String]) -> Vec<Rule> {
         "gh issue comment*",
         "gh issue close*",
         "gh issue edit*",
-        "gh release*",
-        "gh repo*",
-        "gh api*",
+        "gh release create*",
+        "gh release delete*",
+        "gh release edit*",
+        "gh release upload*",
+        "gh repo create*",
+        "gh repo delete*",
+        "gh repo edit*",
+        "gh repo rename*",
+        "gh repo archive*",
+        "gh repo unarchive*",
+        "gh repo fork*",
+        "gh repo sync*",
+        "gh repo deploy-key*",
+        "gh repo autolink*",
+        "gh api* -X*",
+        "gh api* --method*",
+        "gh api* -f*",
+        "gh api* -F*",
+        "gh api* --field*",
+        "gh api* --raw-field*",
+        "gh api* --input*",
         "gh workflow run*",
         "kubectl*",
     ] {
@@ -216,7 +272,18 @@ pub fn agent_rules(
             rules.push(rule("question", "*", Effect::Deny));
         }
     }
-    rules.extend_from_slice(extra);
+    // OpenCode matches paths relative to the session directory `<root>/.opencode/crewii/<division>`,
+    // so `<root>/.opencode/crewii/worktrees/x` arrives as `../worktrees/x` and never matches `*/.opencode/crewii/...`.
+    for r in extra {
+        rules.push(r.clone());
+        if let Some((_, rest)) = r
+            .resource
+            .split_once(".opencode/crewii/")
+            .filter(|_| r.action != "shell")
+        {
+            rules.push(rule(&r.action, &format!("../{rest}"), r.effect));
+        }
+    }
     // ponytail: leads never edit; role overrides cannot re-allow it. Upgrade: split role permissions into lead/worker if needed.
     if kind == Kind::Lead {
         rules.push(rule("edit", "*", Effect::Deny));
@@ -309,6 +376,39 @@ mod tests {
                 expected
             );
         }
+    }
+    #[test]
+    fn crew_paths_match_session_relative_paths() {
+        let extra = [
+            rule("edit", "*", Effect::Deny),
+            rule(
+                "edit",
+                "*/.opencode/crewii/worktrees/*_test.go",
+                Effect::Allow,
+            ),
+            rule("shell", "*/.opencode/crewii/x", Effect::Allow),
+        ];
+        let rules = agent_rules(
+            "engineering",
+            "qa",
+            Access::Writer,
+            Kind::Worker,
+            &extra,
+            &[],
+        );
+        for (path, expected) in [
+            ("../worktrees/e-T-1/a_test.go", "allow"),
+            ("/r/.opencode/crewii/worktrees/e-T-1/a_test.go", "allow"),
+            ("../worktrees/e-T-1/a.go", "deny"),
+            ("../../../src/a_test.go", "deny"),
+        ] {
+            assert_eq!(evaluate(&rules, "edit", path), expected, "{path}");
+        }
+        assert!(
+            !rules
+                .iter()
+                .any(|r| r.action == "shell" && r.resource == "../x")
+        );
     }
     #[test]
     fn writer_lead_has_read_only_git() {
@@ -582,7 +682,7 @@ mod tests {
             "push",
             "merge",
             "remote",
-            "submodule",
+            "submodule update",
             "gc",
             "prune",
             "update-ref",
@@ -712,6 +812,140 @@ mod tests {
         assert_eq!(evaluate(&rules, "edit", "docs/a.md"), "deny");
     }
     #[test]
+    fn read_only_git_listings_allowed_writes_denied() {
+        for access in [Access::ReadOnly, Access::Coordinator] {
+            let rules = agent(access, Kind::Lead);
+            for command in [
+                "git tag --sort=-v:refname",
+                "git -C /r/a tag --sort=-v:refname",
+                "git tag",
+                "git tag -l 'v*'",
+                "git tag --contains HEAD",
+                "git -C /r/a branch -a --list '*blog-cms*'",
+                "git branch -a",
+                "git branch --sort=-committerdate",
+                "git branch --format='%(refname)'",
+                "git branch -r --contains HEAD",
+                "git remote",
+                "git remote get-url origin",
+                "git config --get-all remote.origin.url",
+                "git config -l",
+                "git submodule status",
+                "git notes show HEAD",
+                "git apply --check p.diff",
+                "git fetch --tags -q origin",
+            ] {
+                assert_eq!(
+                    evaluate(&rules, "shell", command),
+                    "allow",
+                    "{access:?} {command}"
+                );
+            }
+            for command in [
+                "git tag v1",
+                "git tag -a v1 -m x",
+                "git tag -d v1",
+                "git tag -f v1",
+                "git tag --list -d v1",
+                "git -C /r/a tag -s v1",
+                "git branch new",
+                "git branch -d x",
+                "git branch -D x",
+                "git branch -a -D x",
+                "git branch -m a b",
+                "git branch -M a b",
+                "git branch -c a b",
+                "git -C /r/a branch -C a b",
+                "git branch -f x HEAD",
+                "git branch -u origin/x",
+                "git branch --set-upstream-to=origin/x",
+                "git branch -t x origin/x",
+                "git remote add x u",
+                "git remote set-url origin u",
+                "git worktree add x",
+                "git stash",
+                "git config user.name x",
+                "git submodule update",
+                "git apply p.diff",
+            ] {
+                assert_eq!(
+                    evaluate(&rules, "shell", command),
+                    "deny",
+                    "{access:?} {command}"
+                );
+            }
+        }
+    }
+    #[test]
+    fn docs_writer_worker_uses_git() {
+        let rules = agent(Access::DocsWriter, Kind::Worker);
+        for command in [
+            "git -C /r/a worktree add /r/.opencode/crewii/worktrees/engineering-T-1 -b crewii/engineering-T-1-x origin/main",
+            "git branch x origin/main",
+            "git add docs/a.md",
+            "git commit -m x",
+        ] {
+            assert_eq!(evaluate(&rules, "shell", command), "allow", "{command}");
+        }
+        for command in ["git push origin x", "git merge main"] {
+            assert_eq!(evaluate(&rules, "shell", command), "deny", "{command}");
+        }
+        assert_eq!(evaluate(&rules, "edit", "/r/src/a.rs"), "deny");
+        assert_eq!(
+            evaluate(
+                &agent(Access::DocsWriter, Kind::Lead),
+                "shell",
+                "git commit -m x"
+            ),
+            "deny"
+        );
+    }
+    #[test]
+    fn gh_reads_allowed_writes_denied() {
+        for access in [Access::ReadOnly, Access::Writer] {
+            let rules = agent(access, Kind::Lead);
+            for command in [
+                "gh repo view o/r --json visibility",
+                "gh repo list o",
+                "gh release list",
+                "gh release view v1",
+                "gh pr view 1",
+                "gh pr list",
+                "gh run list",
+                "gh api repos/o/r",
+                "gh api repos/o/r/pulls --paginate --jq '.[].title'",
+            ] {
+                assert_eq!(
+                    evaluate(&rules, "shell", command),
+                    "allow",
+                    "{access:?} {command}"
+                );
+            }
+            for command in [
+                "gh repo create o/x",
+                "gh repo delete o/x",
+                "gh repo edit o/x --visibility public",
+                "gh release create v1",
+                "gh release upload v1 a",
+                "gh release delete v1",
+                "gh api -X POST repos/o/r/issues",
+                "gh api repos/o/r/issues -f title=x",
+                "gh api repos/o/r/issues -F n=1",
+                "gh api repos/o/r --method PATCH",
+                "gh api repos/o/r --input x.json",
+                "gh api graphql --raw-field query=x",
+                "gh pr create",
+                "gh workflow run x",
+            ] {
+                assert_eq!(
+                    evaluate(&rules, "shell", command),
+                    "deny",
+                    "{access:?} {command}"
+                );
+            }
+        }
+    }
+    #[test]
     fn coordinator_matrix() {
         let rules = agent_rules(
             "engineering",
@@ -778,9 +1012,9 @@ mod tests {
                 "gh issue comment 1",
                 "gh issue close 1",
                 "gh issue edit 1",
-                "gh release",
-                "gh repo",
-                "gh api x",
+                "gh release create v1",
+                "gh repo delete o/x",
+                "gh api -X POST x",
                 "gh workflow run x",
                 "kubectl get pods",
             ] {
@@ -825,8 +1059,8 @@ mod tests {
     }
     #[test]
     fn floor_remove_is_explicit() {
-        let remove = ["gh api*".to_string()];
-        assert!(!floor(&remove).iter().any(|r| r.resource == "gh api*"));
+        let remove = ["gh api* -X*".to_string()];
+        assert!(!floor(&remove).iter().any(|r| r.resource == "gh api* -X*"));
         let rules = agent_rules(
             "engineering",
             "backend",
@@ -835,7 +1069,7 @@ mod tests {
             &[],
             &remove,
         );
-        assert_eq!(evaluate(&rules, "shell", "gh api x"), "allow");
+        assert_eq!(evaluate(&rules, "shell", "gh api -X POST x"), "allow");
     }
     #[test]
     fn extra_rules_cannot_beat_floor() {

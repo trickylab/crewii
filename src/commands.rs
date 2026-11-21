@@ -1336,7 +1336,7 @@ mod tests {
         let prompts = Rc::new(RefCell::new(Vec::new()));
         let recorded = prompts.clone();
         let answers = RefCell::new(std::collections::VecDeque::from([
-            "p/m", "1", "", "p/m", "1", "high", "n",
+            "p/", "1", "", "p/m#high", "n",
         ]));
         e.interactive = true;
         e.ask = Box::new(move |prompt| {

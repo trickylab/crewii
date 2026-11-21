@@ -1,6 +1,7 @@
 # crewii
 
 [![CI](https://github.com/trickylab/crewii/actions/workflows/ci.yml/badge.svg)](https://github.com/trickylab/crewii/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/trickylab/crewii)](https://github.com/trickylab/crewii/releases/latest)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![OpenCode](https://img.shields.io/badge/OpenCode-%E2%89%A5%202.2.5-black.svg)](https://opencode.ai)
 
@@ -39,22 +40,36 @@ Crewii does not need Node or Python at runtime. Writer worktrees need a Git repo
 
 ## Install
 
-With Homebrew on macOS or Linux:
+### Homebrew (macOS and Linux)
 
 ```sh
 brew install trickylab/tap/crewii
+crewii --version
 ```
 
-Or download the archive for your platform and its `.sha256` file from [Releases](https://github.com/trickylab/crewii/releases). Builds cover macOS and Linux (musl), each on arm64 and x86_64. Verify the checksum, then put the extracted `crewii` binary on your `PATH`:
+Upgrade with `brew upgrade crewii`.
+
+### Release archive
+
+Each [release](https://github.com/trickylab/crewii/releases/latest) has an archive and a `.sha256` file for macOS and Linux (musl), on arm64 and x86_64. For example, on Apple silicon:
 
 ```sh
-shasum -a 256 -c crewii-v0.1.0-aarch64-apple-darwin.tar.gz.sha256
+v=v0.1.1 t=aarch64-apple-darwin
+curl -fsSLO "https://github.com/trickylab/crewii/releases/download/$v/crewii-$v-$t.tar.gz"
+curl -fsSLO "https://github.com/trickylab/crewii/releases/download/$v/crewii-$v-$t.tar.gz.sha256"
+shasum -a 256 -c "crewii-$v-$t.tar.gz.sha256"
+tar -xzf "crewii-$v-$t.tar.gz" crewii
+install -m 755 crewii ~/.local/bin/
 ```
 
-Replace the filename with the one for your release and platform. With a Rust toolchain you can build from source instead:
+Use `x86_64-apple-darwin`, `x86_64-unknown-linux-musl`, or `aarch64-unknown-linux-musl` for other platforms, and any directory on your `PATH`.
+
+### From source
+
+With Rust 1.85 or newer:
 
 ```sh
-cargo install --git https://github.com/trickylab/crewii
+cargo install --locked --git https://github.com/trickylab/crewii --tag v0.1.1
 ```
 
 ## Quick start
@@ -154,18 +169,22 @@ Leads cannot edit files or run Git commands that change state, whatever their ro
 | Profile | Edits | State-changing Git |
 | --- | --- | --- |
 | coordinator | `*docs/*.md` only | denied |
-| docs-writer | `*docs/*.md` only | denied |
+| docs-writer | `*docs/*.md` only | allowed in its worktree |
 | read-only | denied | denied |
 | writer | your configuration | your configuration |
+
+Where Git state changes are denied, only the writing forms are blocked. Listings such as `git tag --sort=-v:refname`, `git branch -a --list 'x*'`, `git remote get-url`, and `git config --get` stay allowed.
 
 Every role shares a floor of deny rules:
 
 - `git push` and `git merge`, with or without Git options.
-- `sudo`, `kubectl`, and a fixed list of `gh` write subcommands.
+- `sudo`, `kubectl`, and `gh` writes: creating, editing, or deleting repositories, releases, pull requests, and issues; `gh workflow run`; and `gh api` with a method or fields. Reads such as `gh repo view`, `gh release list`, and `gh api <path>` are allowed.
 - Reads of `.env` and `.env.*`, except example, sample, and template files.
 - Named paths under `~/.ssh`, `~/.aws`, and `~/.config/gh`, plus `~/.netrc`.
 
 Other shell commands follow your configuration. Role overrides are evaluated before the floor, so an override can only weaken it by removing a floor rule explicitly.
+
+OpenCode matches edit paths relative to the crew session directory, `<root>/.opencode/crewii/<division>`, so a crew worktree file arrives as `../worktrees/<name>/<file>`. Crewii adds that relative form for every non-shell override rule that contains `.opencode/crewii/`, so `*/.opencode/crewii/worktrees/*` works as written.
 
 > [!CAUTION]
 > Shell matching is pattern-based. OpenCode splits compound commands, but wrappers and aliases such as `sh -c`, `env`, and Git aliases can slip past it, and so can redirects without a space (`cmd>file`). Shell rules do not cover other tools: a read-only role can still call a write tool if your configuration allows it. Close that gap with a role-specific deny in the project override, using the real tool name:
@@ -196,7 +215,7 @@ Then edit `<root>/.opencode/crewii/engineering.json`:
 {
   "limits": {"instancesPerRole": 2},
   "roles": [{"id": "reviewer", "persona": "engineering/engineering-code-reviewer.md"}],
-  "floor": {"remove": ["gh api*"]}
+  "floor": {"remove": ["gh api* -X*"]}
 }
 ```
 
@@ -255,9 +274,9 @@ Run `crewii` with no arguments to list divisions, or `crewii help <command>` for
 crewii rm engineering
 ```
 
-The confirmation defaults to No; `--yes` skips only the confirmation. Removal deletes the crew's sessions, clean worktrees, generated files, reports, and state. Branches and your override are kept, and dirty or detached worktrees are kept and reported. Tabs of removed sessions can linger in OpenCode's tab list until you close them.
+The confirmation defaults to No; `--yes` skips only the confirmation. Removal deletes the crew's sessions, clean worktrees, generated files, reports, and state. Branches and your override are kept, and dirty or detached worktrees are kept and reported. OpenCode keeps the old tabs in its tab list; the next `crewii <division>` closes the ones that belong to removed crew sessions.
 
-To uninstall, delete the binary and the crewii cache, plus any project overrides you no longer need.
+To uninstall, run `brew uninstall crewii` (or delete the binary you installed), then remove the cache at `~/.cache/crewii` and any project overrides you no longer need.
 
 ## Troubleshooting
 

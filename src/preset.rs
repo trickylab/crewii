@@ -293,7 +293,7 @@ mod tests {
 
     #[test]
     fn override_replaces_and_appends() {
-        let json = r#"{"floor":{"remove":["gh api*"]},"roles":[{"id":"ba","persona":"a.md","boundary":"new","description":"new desc","permissions":[{"action":"read","resource":"x","effect":"deny"}]},{"id":"ba","permissions":[{"action":"read","resource":"y","effect":"allow"}]}]}"#;
+        let json = r#"{"floor":{"remove":["gh api* -X*"]},"roles":[{"id":"ba","persona":"a.md","boundary":"new","description":"new desc","permissions":[{"action":"read","resource":"x","effect":"deny"}]},{"id":"ba","permissions":[{"action":"read","resource":"y","effect":"allow"}]}]}"#;
         let d = load("engineering", Some(json)).unwrap();
         let role = &d.roles[0];
         assert_eq!(
@@ -307,7 +307,7 @@ mod tests {
                 .collect::<Vec<_>>(),
             ["x", "y"]
         );
-        assert_eq!(d.floor.remove, ["gh api*"]);
+        assert_eq!(d.floor.remove, ["gh api* -X*"]);
     }
 
     #[test]
@@ -402,7 +402,13 @@ mod tests {
             load("eng", Some(r#"{"floor":{"remove":["gh api"]}}"#)).unwrap_err(),
             "floor.remove: unknown floor rule 'gh api'"
         );
-        assert!(load("eng", Some(r#"{"floor":{"remove":["gh api*","*.env"]}}"#)).is_ok());
+        assert!(
+            load(
+                "eng",
+                Some(r#"{"floor":{"remove":["gh api* -X*","*.env"]}}"#)
+            )
+            .is_ok()
+        );
     }
 
     #[test]

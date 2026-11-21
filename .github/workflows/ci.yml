@@ -33,6 +33,11 @@ jobs:
           sh scripts/formula.sh v0.0.0 /tmp/f > /tmp/f/crewii.rb
           ruby -c /tmp/f/crewii.rb
           grep -c 'sha256 "0000"' /tmp/f/crewii.rb | grep -qx 4
+      - if: matrix.os == 'ubuntu-latest'
+        name: Release notes extract
+        run: |
+          sh scripts/notes.sh v0.1.0 | grep -q '^### Added'
+          ! sh scripts/notes.sh v0.0.0
 
   coverage:
     runs-on: ubuntu-latest
